@@ -12,18 +12,27 @@ import { CourseSessionsModule } from './course-sessions/course-sessions.module';
 import { CourseModule } from './courses/course.module';
 import { ProfilesModule } from './profiles/profile.module';
 import { UsersModule } from './User/user.module';
+import { EnrollmentModule } from './Enrollments/Enrollment.module';
+import { SubmissionModule } from './submission/submission.module';
+import { AssignmentModule } from './assignment/assignment.module';
+import storageConfig from './config/storage.config';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
   imports: [ LoggerModule,
+    EnrollmentModule,
+    AssignmentModule,
     AuthModule,
     UsersModule,
     ProfilesModule,
     CourseModule,
+    SubmissionModule,
     CourseSessionsModule,
+    QuizModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [jwtConfig,appConfig,databaseConfig],
+      load: [jwtConfig,appConfig,databaseConfig,storageConfig],
     }),
   TypeOrmModule.forRootAsync({
   inject: [ConfigService],

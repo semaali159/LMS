@@ -3,7 +3,7 @@ import { StudentProfile } from "../profiles/entities/student-profile.entity";
 import { InstructorProfile } from "../profiles/entities/instructor-profile.entity";
 import { Column, Entity, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Role } from "../common/enums/roles.enum";
-// import { Enrollment } from "src/Enrollments/Enrollment.entity";
+import { Enrollment } from "src/Enrollments/Enrollment.entity";
 import { Exclude } from "class-transformer";
 import { Course } from "src/courses/course.entity";
 @Entity({"name":"users"})
@@ -33,7 +33,7 @@ instructorProfile?: InstructorProfile;
 coursesinstructor:Course[]
 // // @ManyToMany(()=>Course, (course)=> course.students)
 // // coursesEnrolled:Course[]
-// @OneToMany(() => Enrollment, e => e.student)
-// enrollments: Enrollment[];
+@OneToMany(() => Enrollment, e => e.student)
+enrollments: Enrollment[];
 
 }

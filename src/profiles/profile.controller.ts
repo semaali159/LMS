@@ -14,7 +14,7 @@ constructor(private profilesService: ProfilesService) {}
 @UseGuards(AuthGuard('jwt'),RolesGuard)
   @Roles(Role.STUDENT)
     @ApiOperation({ summary: 'Create student profile' })
-  @ApiParam({ name: 'userId', type: Number, example: 12 })
+  @ApiParam({ name: 'userId', type: String, example: 12 })
   @ApiBody({
     schema: {
       properties: {
@@ -33,7 +33,7 @@ return this.profilesService.createStudentProfile(userId, body.gradeLevel);
 @UseGuards(AuthGuard('jwt'),RolesGuard)
 @Roles(Role.INSTRUCTOR)
   @ApiOperation({ summary: 'Create instructor profile' })
-  @ApiParam({ name: 'userId', type: Number, example: 12 })
+  @ApiParam({ name: 'userId', type: String, example: 12 })
   @ApiBody({
     schema: {
       properties: {
