@@ -77,48 +77,7 @@ async update(id:number,dto: UpdateCourseDto, instructorId:string,){
       ],
     });
   }
-async enroll(courseId: number, studentId: string) {
-    const student = await this.UserRepository.findOne({ where: { id: studentId } });
 
-    if (!student || student.role !== 'student') {
-      throw new ForbiddenException('Only students can enroll');
-    }
-
-    const course = await this.CourseRepository.findOne({
-      where: { id: courseId },
-      relations: ['enrollments'],
-    });
-
-    if (!course) throw new NotFoundException('Course not found');
-    const existing = await this.enrollmentRepository.findOne({where:{student:{id:studentId}, course:{id:courseId}}})
-    if(existing){ throw new BadRequestException('already enrolled')}
-    const enrollment = this.enrollmentRepository.create({
-      student,course,status:'ACTIVE'
-    })
-    const savedEnrollment= await this.enrollmentRepository.save(enrollment)
-this.eventEmitter.emit('enrollment.created',{enrollmentId:savedEnrollment.id,studentName:student.username})
-console.log(savedEnrollment)
-return plainToInstance(EnrollCourseResponseDto,savedEnrollment,  { excludeExtraneousValues: true })  
-}
-async getEnrolledCourses(studentId: string) {
-
-  const student = await this.UserRepository.findOne({
-    where: { id: studentId }
-  });
-
-  if (!student) throw new NotFoundException('Student not found');
-  if (student.role !== 'student')
-    throw new ForbiddenException('Only students can view enrolled courses');
-const enrollments = await this.enrollmentRepository.find({
-  where:{
-    student:{id:studentId},
-    status:'ACTIVE'
-  },
-  relations:['course','course.teacher']
-})
-return enrollments.map(e=> e.course)
- 
-}
 async updateCourseState(instructorId:string, courseId: number, newStatus:CourseState){
 const course = await this.CourseRepository.findOne({where:{id:courseId}, relations:['sessions',
   //  'enrollments'

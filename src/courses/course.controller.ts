@@ -88,27 +88,4 @@ export class CourseController {
     return this.courseService.getAll();
   }
 
-//   @Post(':id/enroll')
-//   @ApiBearerAuth('access-token')
-//   @UseGuards(JwtAuthGuard, RolesGuard,CourseEnrollmentGuard)
-//   @Roles(Role.STUDENT)
-//   @ApiOperation({ summary: 'Enroll in a course (Student only)' })
-//   @ApiParam({ name: 'id', type: Number })
-//   @ApiResponse({ status: 200, description: 'Student enrolled successfully' })
-//   @ApiResponse({ status: 404, description: 'Course not found' })
-//   enroll(
-//     @Param('id') courseId: number,
-//     @GetUser() student: JwtPayload,
-//   ) {
-//     return this.courseService.enroll(courseId, student.userId);
-//   }
-//   @Get('my/enrolled')
-//   @ApiBearerAuth('access-token')
-//   @UseGuards(JwtAuthGuard, RolesGuard)
-//   @Roles(Role.STUDENT)
-// getMyEnrolledCourses(
-//     @GetUser() student: JwtPayload) {
-//   return this.courseService.getEnrolledCourses(student.userId);
-// }
-
 }

@@ -15,25 +15,35 @@ export class AssignmentCreatedListener {
     private enrollmentRepo: Repository<Enrollment>,
   ) {}
 
-  @OnEvent('assignment.created')
+  @OnEvent('assignment.created',{async:true})
   async handleAssignmentCreated(payload: {
     assignmentId: number;
     courseId: number;
     title: string;
   }) {
     const enrollments = await this.enrollmentRepo.find({
-      where: { course: { id: payload.courseId } },
+      where: { course: { id: payload.courseId },status:'ACTIVE' },
       relations: ['student'],
     });
-for(const enroll of enrollments ){
-  await this.notificationService.create({
+    await Promise.all(enrollments.map((enroll)=> 
+      this.notificationService.create({
     userId: enroll.student.id,
     title: "New Assignment",
     message:`New assignment: ${payload.title}`,
 type:NotificationType.ASSIGNMENT,
 sourceType:NotificationType.ASSIGNMENT,
-sourceId:payload.assignmentId,
-  });
-}}
+sourceId:payload.assignmentId,})))
+
+// for(const enroll of enrollments ){
+//   await this.notificationService.create({
+//     userId: enroll.student.id,
+//     title: "New Assignment",
+//     message:`New assignment: ${payload.title}`,
+// type:NotificationType.ASSIGNMENT,
+// sourceType:NotificationType.ASSIGNMENT,
+// sourceId:payload.assignmentId,
+//   });
+// }
+}
   
 }

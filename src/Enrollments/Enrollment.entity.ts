@@ -7,7 +7,7 @@ export class Enrollment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ default: 'ACTIVE' })
+  @Column({ default: 'PENDING' })
   status: 'ACTIVE' | 'PENDING' | 'DROPPED';
 
   @CreateDateColumn()
