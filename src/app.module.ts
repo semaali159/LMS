@@ -17,6 +17,9 @@ import { SubmissionModule } from './submission/submission.module';
 import { AssignmentModule } from './assignment/assignment.module';
 import storageConfig from './config/storage.config';
 import { QuizModule } from './quiz/quiz.module';
+import redisConfig from './config/redis.config';
+import { RedisModule } from 'nestjs-redis';
+import mailerConfig from './config/mailer.config';
 
 @Module({
   imports: [ LoggerModule,
@@ -29,30 +32,36 @@ import { QuizModule } from './quiz/quiz.module';
     SubmissionModule,
     CourseSessionsModule,
     QuizModule,
+    RedisModule,
     ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-      load: [jwtConfig,appConfig,databaseConfig,storageConfig],
+          isGlobal: true,
+          envFilePath: '.env',
+          load: [
+            jwtConfig,
+            appConfig,
+            databaseConfig,
+            storageConfig,
+            redisConfig,
+            mailerConfig
+               ],
     }),
-  TypeOrmModule.forRootAsync({
-  inject: [ConfigService],
-  useFactory: (configService: ConfigService) => {
-    console.log('DATABASE CONFIG:', configService.get('database'));
-
-    return {
-      type: 'postgres',
-      url: configService.getOrThrow<string>('database.url'),
-      autoLoadEntities: true,
-      synchronize: true,
-      ssl: {
-        rejectUnauthorized: false,
-      },
-  retryAttempts: 10,
-  retryDelay: 3000,
-  keepConnectionAlive: true,
+     TypeOrmModule.forRootAsync({
+          inject: [ConfigService],
+          useFactory: (configService: ConfigService) => {
+           return {
+              type: 'postgres',
+              url: configService.getOrThrow<string>('database.url'),
+              autoLoadEntities: true,
+              synchronize: true,
+              ssl: {
+                   rejectUnauthorized: false,
+                   },
+              retryAttempts: 10,
+              retryDelay: 3000,
+              keepConnectionAlive: true,
     };
-  },
-})],
+    },
+    })],
   controllers: [AppController],
   providers: [AppService],
 })

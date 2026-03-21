@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../User/user.service';
 import { RegisterDto } from './dtos/register.dto';
@@ -12,27 +12,74 @@ import { LoginDto } from './dtos/login.dto';
 import * as bcrypt from 'bcrypt';
 import { Role } from 'src/common/enums/roles.enum';
 import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from 'src/redis/redis.constants';
+import { MailService } from 'src/mail/mail.service';
 @Injectable()
 export class AuthService {
   constructor(
+@Inject(REDIS_CLIENT) private readonly redis: Redis,
     private usersService: UsersService,
     private jwtService: JwtService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private mailService: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
-    const user = await this.usersService.create(
-      dto.email,
-      dto.password,
-      dto.username,
-      dto.role
-    );
+    const existingUser = await this.usersService.findByEmail(dto.email);
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
 
-    return {
-      message: 'User created successfully, please login',
-      userID: user.id,
-    };
+    try {
+      const user = await this.usersService.create(
+        dto.email,
+        dto.password,
+        dto.username,
+        dto.role
+      );
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const key = `otp:${dto.email}`;
+console.log('--- Redis Debug ---');
+  console.log('Trying to save key:', this.redis.client);
+
+      await this.redis.set(
+        key,
+        otp,
+        'EX',
+        300,
+      );
+    const savedValue = await this.redis.get("test_key");
+  console.log('Value read immediately from Redis:', savedValue);
+  console.log('-------------------');
+      try {
+        await this.mailService.sendOtp(dto.email, otp);
+      } catch (mailError) {
+        console.error('Failed to send email:', mailError);
+      }
+
+      return {
+        message: 'User created successfully. Please check your email for the verification code.',
+      };
+
+    } catch (error) {
+      throw new InternalServerErrorException('Registration failed, please try again later');
+    }
   }
+
+  // async verifyOtp(email: string, otp: string) {
+  //   const savedOtp = await this.redis.get(`otp:${email}`);
+
+  //   if (!savedOtp || savedOtp !== otp) {
+  //     throw new ConflictException('Invalid or expired OTP');
+  //   }
+
+  //   await this.usersService.markAsVerified(email); 
+  //   await this.redis.del(`otp:${email}`);
+
+  //   return { message: 'Email verified successfully' };
+  // }
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);

@@ -6,9 +6,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { RedisModule } from 'src/redis/redis.module';
+import { MailModule } from 'src/mail/mail.module';
 @Module({
   imports: [
     UsersModule,
+    RedisModule, 
+    MailModule,
    JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
