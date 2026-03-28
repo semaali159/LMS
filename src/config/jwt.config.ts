@@ -5,4 +5,6 @@ export default registerAs('jwt', () => ({
   refreshSecret: process.env.JWT_REFRESH_SECRET || 'your-refresh-secret',
   accessExpiresIn: '15m' as const,
   refreshExpiresIn: '7d' as const,
+  verifyTokenSecret:process.env.JWT_VERIFY_SECRET,
+  verifyTokenExpireIn: process.env.JWT_VERIFY_EXPIREIN
  }));

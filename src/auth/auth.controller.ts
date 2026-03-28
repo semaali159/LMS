@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/common/decorators/get-user.decorator';
+import { JwtVerifyGuard } from './guards/jwt-verify.guard';
 interface JwtPayload {
   userId: string;
   email: string;
@@ -58,7 +59,7 @@ export class AuthController {
   }
 
   @Post('login')
-    @ApiOperation({ summary: 'Login a user' })
+  @ApiOperation({ summary: 'Login a user' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
     status: 200,
@@ -81,8 +82,37 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('verify')
+  @ApiOperation({ summary: 'Verify user email' })
+  @ApiBearerAuth('access-token')
+  @ApiResponse({
+    status: 200,
+    description: 'Email successfully verified ',
+    schema: { example: { message: 'Email verified successfully. Please log in ' } },
+  })
+  @UseGuards(AuthGuard('verify-jwt'))
+  verify(
+  @GetUser('email') email: string,@Body() otp: string) {
+    return this.authService.verifyOtp(email,otp);
+  }
+
+
+  @Post('resend-otp')
+  @ApiOperation({ summary: 'Resend OTP  code' })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP sent successfully ',
+    schema: { example: { message: 'A new verification code has been sent.' } },
+  })
+async resendOtp(@Body() email: string) {
+  return await this.authService.resendOtp(email);
+}
+
+
+
+
   @Post('logout')
-    @ApiOperation({ summary: 'Logout the current user' })
+  @ApiOperation({ summary: 'Logout the current user' })
   @ApiBearerAuth('access-token')
   @ApiResponse({
     status: 200,

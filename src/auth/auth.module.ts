@@ -8,6 +8,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from 'src/redis/redis.module';
 import { MailModule } from 'src/mail/mail.module';
+import { VerifyJWTStrategy } from './strategies/jwt-verify.strategy';
 @Module({
   imports: [
     UsersModule,
@@ -25,7 +26,7 @@ import { MailModule } from 'src/mail/mail.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy,VerifyJWTStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

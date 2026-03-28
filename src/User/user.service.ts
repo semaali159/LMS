@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { User } from './user.entity';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Role } from 'src/common/enums/roles.enum';
 
 @Injectable()
@@ -13,18 +13,21 @@ export class UsersService {
     email: string,
     password: string,
     username: string,
-    role?: Role
+    role?: Role,
+    manager?: EntityManager
   ) {
-const alreadyUser =await this.findByEmail(email)
-if( alreadyUser)  throw new BadRequestException('user already exist');
+    const repo = manager ? manager.getRepository(User) : this.userRepository;
+
+    const alreadyUser =await repo.findOne({ where: { email } });
+    if( alreadyUser)  throw new BadRequestException('User already exist');
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = this.userRepository.create({
-      email,
-      password: hashedPassword,
-      username,
-      role
-    })
-    return await this.userRepository.save(user);
+    
+    const userData ={
+      email,password:hashedPassword,username,role
+    }
+    const user =  repo.create(userData)
+    return await repo.save(user);
   }
 
   async findByEmail(email: string) {
@@ -33,6 +36,16 @@ if( alreadyUser)  throw new BadRequestException('user already exist');
 
   async findById(id: string) {
     return this.userRepository.findOne({where:{id}});
+  }
+  async markAsVerified(email:string){
+    const user = await this.findByEmail(email);
+    if(!user){
+        throw new BadRequestException('user not found')
+    }
+    user.isAccountVerified = true
+    await this.userRepository.save(user)
+    return {message:'Email verified successfully. Please log in '}
+
   }
 
   async updateRefreshToken(userId: string, refreshToken: string) {
