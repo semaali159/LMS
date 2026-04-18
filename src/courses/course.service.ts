@@ -10,6 +10,7 @@ import { CourseState } from "src/common/enums/courseState.enum";
 import { Role } from "src/common/enums/roles.enum";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Enrollment } from "src/Enrollments/Enrollment.entity";
+import { NotificationService } from "src/Notification/Notification.service";
 
 @Injectable()
 export class CourseService{
@@ -17,7 +18,8 @@ export class CourseService{
       private eventEmitter: EventEmitter2,
     @InjectRepository(Course)private readonly CourseRepository:Repository<Course>,
     @InjectRepository(User) private readonly UserRepository: Repository<User>,
-    @InjectRepository (Enrollment) private readonly enrollmentRepository: Repository<Enrollment>
+    @InjectRepository (Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
+    private readonly notificationService: NotificationService,
     )
     {}
 async create(dto:CreateCourseDto,instructorId:string){
@@ -60,6 +62,7 @@ async update(id:number,dto: UpdateCourseDto, instructorId:string,){
     if (course.instructor.id !== instructorId)
       throw new ForbiddenException('You are not the owner of this course');
 
+    await this.notificationService.deleteAllForCourse(id);
     return this.CourseRepository.remove(course);
   }
 

@@ -16,6 +16,6 @@ export class Enrollment {
   @ManyToOne(() => User)
   student: User;
 
-  @ManyToOne(() => Course)
+  @ManyToOne(() => Course, { onDelete: "CASCADE" })
   course: Course;
 }

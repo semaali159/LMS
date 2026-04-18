@@ -3,25 +3,29 @@ import { User } from "src/User/user.entity";
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
-export class Notification{
+export class Notification {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @PrimaryGeneratedColumn()
-    id:number
-    @Column({})
-    title:string
-    @Column({})
-    message:string
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @Column()
+  title: string;
+
+  @Column()
+  message: string;
+
+  @ManyToOne(() => User, { onDelete: "CASCADE" })
   user: User;
+
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: NotificationType,
   })
   type: NotificationType;
 
- @Column()
-  sourceType: string; // 'ASSIGNMENT' | 'GRADE' | 'COURSE'
   @Column()
+  sourceType: string;
+
+ @Column()
   sourceId: number;
 
   @Column({ default: false })
@@ -29,5 +33,4 @@ export class Notification{
 
   @CreateDateColumn()
   createdAt: Date;
-    
 }

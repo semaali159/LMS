@@ -32,7 +32,8 @@ export class AssignmentCreatedListener {
     message:`New assignment: ${payload.title}`,
 type:NotificationType.ASSIGNMENT,
 sourceType:NotificationType.ASSIGNMENT,
-sourceId:payload.assignmentId,})))
+sourceId:payload.assignmentId,
+})))
 
 // for(const enroll of enrollments ){
 //   await this.notificationService.create({

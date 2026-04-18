@@ -8,4 +8,3 @@ export class CreateNotificationDto {
   sourceType: NotificationType;
   sourceId: number;
 }
-

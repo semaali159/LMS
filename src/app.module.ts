@@ -20,9 +20,12 @@ import { QuizModule } from './quiz/quiz.module';
 import redisConfig from './config/redis.config';
 import { RedisModule } from 'nestjs-redis';
 import mailerConfig from './config/mailer.config';
+import { NotificationModule } from './Notification/Notification.module';
+import { CourseAnnouncementModule } from './course-announcements/course-announcement.module';
 
 @Module({
   imports: [ LoggerModule,
+    NotificationModule,
     EnrollmentModule,
     AssignmentModule,
     AuthModule,
@@ -31,6 +34,8 @@ import mailerConfig from './config/mailer.config';
     CourseModule,
     SubmissionModule,
     CourseSessionsModule,
+    CourseAnnouncementModule,
+    NotificationModule,
     QuizModule,
     RedisModule,
     ConfigModule.forRoot({

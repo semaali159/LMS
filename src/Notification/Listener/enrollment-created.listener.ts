@@ -21,8 +21,7 @@ export class EnrollmentCreatedListener{
             message:`${payload.studentName} enroll your course`,
             type:NotificationType.ENROLLMENT,
             sourceType:NotificationType.ENROLLMENT,
-            sourceId:payload.enrollmentId
-
+            sourceId:payload.enrollmentId,
         })
   }
 }
