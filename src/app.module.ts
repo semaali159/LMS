@@ -22,6 +22,7 @@ import { RedisModule } from 'nestjs-redis';
 import mailerConfig from './config/mailer.config';
 import { NotificationModule } from './Notification/Notification.module';
 import { CourseAnnouncementModule } from './course-announcements/course-announcement.module';
+import { QueueModule } from './mail/queue.module';
 
 @Module({
   imports: [ LoggerModule,
@@ -38,6 +39,7 @@ import { CourseAnnouncementModule } from './course-announcements/course-announce
     NotificationModule,
     QuizModule,
     RedisModule,
+    QueueModule,
     ConfigModule.forRoot({
           isGlobal: true,
           envFilePath: '.env',

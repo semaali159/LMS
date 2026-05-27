@@ -1,26 +1,27 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Processor } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 
 @Processor('mail')
-export class MailProcessor {
-  constructor(private mailer: MailerService) {}
-
-  async process(job: Job) {
-    if (job.name === 'send-otp') {
-      return this.handleSendOtp(job);
-    }
+export class MailProcessor extends WorkerHost {
+  constructor(private readonly mailer: MailerService) {
+    super();
   }
 
-  async handleSendOtp(job: Job) {
-    const { email, otp } = job.data;
+  async process(job: Job<any>): Promise<any> {
+    switch (job.name) {
+      case 'send-otp':
+        await this.mailer.sendMail({
+          to: job.data.email,
+          subject: 'Email Verification',
+          template: 'otp',
+          context: { otp: job.data.otp },
+        });
+        break;
 
-    await this.mailer.sendMail({
-      to: email,
-      subject: 'Email Verification',
-      template: 'otp',
-      context: { otp },
-    });
+      default:
+        break;
+    }
   }
 }
 

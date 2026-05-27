@@ -21,6 +21,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from 'src/common/decorators/get-user.decorator';
 import { JwtVerifyGuard } from './guards/jwt-verify.guard';
+import { ResendOTPDto, VerifyOTPDto } from './dtos/otp.dto';
 interface JwtPayload {
   userId: string;
   email: string;
@@ -92,8 +93,8 @@ export class AuthController {
   })
   @UseGuards(AuthGuard('verify-jwt'))
   verify(
-  @GetUser('email') email: string,@Body() otp: string) {
-    return this.authService.verifyOtp(email,otp);
+  @GetUser('email') email: string,@Body() dto: VerifyOTPDto) {
+    return this.authService.verifyOtp(email,dto);
   }
 
 
@@ -104,8 +105,8 @@ export class AuthController {
     description: 'OTP sent successfully ',
     schema: { example: { message: 'A new verification code has been sent.' } },
   })
-async resendOtp(@Body() email: string) {
-  return await this.authService.resendOtp(email);
+async resendOtp(@Body() dto: ResendOTPDto) {
+  return await this.authService.resendOtp(dto.email);
 }
 
 

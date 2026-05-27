@@ -9,11 +9,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from 'src/redis/redis.module';
 import { MailModule } from 'src/mail/mail.module';
 import { VerifyJWTStrategy } from './strategies/jwt-verify.strategy';
+import { QueueModule } from 'src/mail/queue.module';
 @Module({
   imports: [
     UsersModule,
     RedisModule, 
     MailModule,
+    QueueModule,
    JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

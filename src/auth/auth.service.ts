@@ -16,15 +16,17 @@ import Redis from 'ioredis';
 import { REDIS_CLIENT } from 'src/redis/redis.constants';
 import { MailService } from 'src/mail/mail.service';
 import { DataSource } from 'typeorm';
-import { NotFound } from '@aws-sdk/client-s3';
+import { VerifyOTPDto } from './dtos/otp.dto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 @Injectable()
 export class AuthService {
   constructor(
 @Inject(REDIS_CLIENT) private readonly redis: Redis,
+@InjectQueue('mail') private readonly mailQueue: Queue,
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private mailService: MailService,
     private dataSource: DataSource,
   ) {}
 
@@ -34,22 +36,38 @@ export class AuthService {
     await queryRunner.startTransaction()
     try{
       const user =  await this.usersService.create(dto.email,dto.password,dto.username,dto.role, queryRunner.manager)
-     
+      
+      await queryRunner.commitTransaction();
+
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const key = `otp:${dto.email}`;
       const limitKey = `otp-limit:${dto.email}`; 
+
+      const hashedOtp = await bcrypt.hash(otp, 10);
       await this.redis.set(
         key,
-        otp,
+        hashedOtp,
         'EX',
         300,
       );
 
       await this.redis.set(limitKey,1,'EX',3600)
-
-      await this.mailService.sendOtp(dto.email, otp);
-
-      await queryRunner.commitTransaction();
+      await this.mailQueue.add(
+        'send-otp',
+        {
+          email: dto.email,
+          otp
+        },
+        {
+          attempts: 3,
+          backoff:{
+            type:'exponential',
+            delay:3000
+          },
+          removeOnComplete: 100,
+          removeOnFail:50
+        }
+      )
       
       const verifyToken = await this.generateVerifyToken(user.email);
 
@@ -70,14 +88,19 @@ export class AuthService {
      
   }
 
-  async verifyOtp(email: string, payload: any) {
+  async verifyOtp(email: string, dto: VerifyOTPDto) {
     const key = `otp:${email}`
     const savedOtp = await this.redis.get(key);
-    const otp = payload.otp;
+    const otp = dto.otpCode;
     const limitKey = `otp-limit:${email}`
 
     if (!savedOtp || savedOtp !== otp) {
       throw new ConflictException('Invalid or expired OTP');
+    }
+
+    const isValidOtp = await this.comparePassword(otp,savedOtp)
+    if(!isValidOtp){
+      throw new ConflictException('Invalid or Expired OTP')
     }
     await this.usersService.markAsVerified(email); 
     await this.redis.del(key);
@@ -91,7 +114,9 @@ export class AuthService {
     const key = `otp:${email}`
     const limitKey = `otp-limit:${email}`
 
+    console.log(email)
     const user = await this.usersService.findByEmail(email)
+    console.log(user)
     if(!user) throw new NotFoundException('User not found')
     if(user.isAccountVerified) throw new ConflictException('Account already verified')
     
@@ -110,13 +135,35 @@ export class AuthService {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
     try{
-      await this.redis.set(key, otp, 'EX', 300)
+      const hashedOtp = await bcrypt.hash(
+              otp,
+              10,
+            );
+      await this.redis.set(key, hashedOtp, 'EX', 300)
       if(!requestCount){
         await this.redis.set(limitKey,1,'EX',3600)
       }else{
-        await this.redis.incr(limitKey)
+        const multi = this.redis.multi();
+
+      multi.incr(limitKey);
+      multi.expire(limitKey, 3600);
+
+      await multi.exec();
       }
-      await this.mailService.sendOtp(email,otp)
+      await this.mailQueue.add(
+        'send-otp',
+        {
+          email,
+          otp,
+      },{
+        attempts:3,
+        backoff:{
+          type:'exponential',
+          delay:3000,
+        },
+        removeOnComplete:100,
+        removeOnFail:50
+      })
       return{
         message:'A new verification code has been sent'
       }
@@ -136,6 +183,7 @@ export class AuthService {
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
 
+    if(!user.isAccountVerified) throw new UnauthorizedException('Please verify your account first  ')
     const roles = this.getUserRoles(user);
     const tokens = await this.generateTokens(
       user.id,
@@ -175,7 +223,7 @@ export class AuthService {
       user.id,
       tokens.refreshToken,
     );
-    return tokens.accessToken;
+    return tokens;
   }
 
   private async generateTokens(
@@ -203,15 +251,16 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
   private async generateVerifyToken(email:string){
-    const token =this.jwtService.signAsync(
+    return await this.jwtService.signAsync(
       { email:email, type: 'verify' },
       { 
         secret:this.configService.get<string>('jwt.verifyTokenSecret'),
         expiresIn: '10m' })
-    return token;
   }
   private getUserRoles(user: any): Role[] {
-    return user.role?.length ? user.role : [Role.STUDENT];
+  return Array.isArray(user.role)
+  ? user.role
+  : [user.role || Role.STUDENT];
   }
   private async comparePassword(plain: string, hashed: string) {
     return bcrypt.compare(plain, hashed);
