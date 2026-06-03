@@ -16,7 +16,7 @@ export class AnnouncementCreatedListener{
          
     ){}
 
-    @OnEvent('announcement-created')
+    @OnEvent('announcement.created')
     async handleAnnouncementCreated(payload:{
         announcementId: number;
     courseId: number;

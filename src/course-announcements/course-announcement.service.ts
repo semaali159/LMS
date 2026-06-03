@@ -106,7 +106,7 @@ export class CourseAnnouncementService{
             throw new NotFoundException('Announcement not found')
         }
         await this.enrollmentService.getActiveEnrollmentOrFail(studentId,announcement.course.id)
-        await this.markRead(announcementId,studentId)
+        return await this.markRead(announcementId,studentId)
     }
     async markRead(announcementId:number,studentId:string){
         const read = this.readRepo.create({
