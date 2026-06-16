@@ -85,7 +85,7 @@ export class AssignmentService {
   throw error
 
   }finally{
-    await queryRunner.release
+    await queryRunner.release()
   }}
     async getCourseAssignments(courseId: number) {
     return this.assignmentRepo.find({

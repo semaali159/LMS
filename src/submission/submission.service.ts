@@ -92,7 +92,7 @@ if(!student){
   ) {
     const submission = await this.submissionRepo.findOne({
       where: { id: submissionId },
-      relations: ['assignment', 'assignment.course', 'assignment.course.teacher'],
+      relations: ['assignment', 'assignment.course', 'assignment.course.instructor'],
     });
 
     if (!submission) {
@@ -123,7 +123,7 @@ async getAssignmentSubmissions(
 ) {
   const assignment = await this.assignmentRepo.findOne({
     where: { id: assignmentId },
-    relations: ['course', 'course.teacher'],
+    relations: ['course', 'course.instructor'],
   });
 
   if (!assignment) throw new NotFoundException('Assignment not found');

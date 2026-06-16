@@ -39,7 +39,7 @@ export class EnrollmentService {
     return enrollment;
   }
 async getTeacherIdByEnrollmentId(enrollmnetId:number){
-const enrollment = await this.enrollmentRepo.findOne({where:{id:enrollmnetId},relations:['course','course.teacher']})
+const enrollment = await this.enrollmentRepo.findOne({where:{id:enrollmnetId},relations:['course','course.instructor']})
 if(!enrollment){
    throw new NotFoundException("enrollment not found")
 }
@@ -138,7 +138,7 @@ const enrollments = await this.enrollmentRepo.find({
     student:{id:studentId},
     status:'ACTIVE'
   },
-  relations:['course','course.teacher']
+  relations:['course','course.instructor']
 })
 return enrollments.map(e=> e.course)
  
