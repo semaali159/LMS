@@ -3,10 +3,10 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Enrollment } from "./Enrollment.entity";
 import { plainToInstance } from "class-transformer";
-import { EnrollCourseResponseDto } from "src/courses/dtos/course-response.dto";
 import { User } from "src/User/user.entity";
 import { Course } from "src/courses/course.entity";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { EnrollCourseResponseDto } from "./dtos/enrollment.dto";
 
 @Injectable()
 export class EnrollmentService {

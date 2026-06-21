@@ -28,6 +28,9 @@ export class Course {
   @Column({type:'enum', enum:CourseState, default:CourseState.DRAFT})
   status : CourseState
 
+  @Column({ nullable: true })
+  rejectionReason?: string;
+
   @ManyToOne(() => User, user => user.coursesinstructor, { eager: true })
   instructor: User;
 

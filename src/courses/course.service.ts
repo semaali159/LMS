@@ -2,44 +2,58 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Course } from "./course.entity";
-import { CreateCourseDto, UpdateCourseDto } from "./dtos/course.dto";
+import { CreateCourseDto, RejectCourseDto, UpdateCourseDto } from "./dtos/course.dto";
 import { User } from "src/User/user.entity";
 import { plainToInstance } from "class-transformer";
-import { createCourseResponseDto, EnrollCourseResponseDto } from "./dtos/course-response.dto";
+import { CourseDetailResponseDto, CourseListItemDto, CourseResponseDto, CourseStatusChangeResponseDto, CreateCourseResponseDto, InstructorCourseListItemDto, InstructorCourseResponseDto } from "./dtos/course-response.dto";
 import { CourseState } from "src/common/enums/courseState.enum";
 import { Role } from "src/common/enums/roles.enum";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Enrollment } from "src/Enrollments/Enrollment.entity";
 import { NotificationService } from "src/Notification/Notification.service";
+import { CourseSession } from "src/course-sessions/entities/course-session.entity";
+import { JwtPayload } from "src/common/types/payload.interface";
 
+ interface validateForSubmit{
+      title: string;
+      description: string;
+      sessionsCount: number;
+      status:CourseState;
+    } 
 @Injectable()
 export class CourseService{
     constructor(
       private eventEmitter: EventEmitter2,
     @InjectRepository(Course)private readonly CourseRepository:Repository<Course>,
     @InjectRepository(User) private readonly UserRepository: Repository<User>,
+    @InjectRepository(CourseSession) private readonly sessionRepository: Repository<CourseSession>, 
     @InjectRepository (Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
     private readonly notificationService: NotificationService,
     )
     {}
-async create(dto:CreateCourseDto,instructorId:string){
-const instructor = await this.UserRepository.findOne({ where: { id: instructorId } });
 
-    if (!instructor || instructor.role !== Role.INSTRUCTOR) {
+    
+  async create(dto:CreateCourseDto,instructorId:string){
+      const instructor = await this.UserRepository.findOne({ where: { id: instructorId } });
+
+    if (!instructor ||
+       instructor.role !== Role.INSTRUCTOR 
+      ) {
       throw new ForbiddenException('Only instructors can create courses');
     }
 
     const course = this.CourseRepository.create({
       ...dto,
       instructor,
+  status: CourseState.DRAFT,
     });
 
     const savedCourse = await this.CourseRepository.save(course);
-    return plainToInstance(createCourseResponseDto, savedCourse, {
+    return plainToInstance(CreateCourseResponseDto, savedCourse, {
     excludeExtraneousValues: true,  
   });
 }
-async update(id:number,dto: UpdateCourseDto, instructorId:string,){
+  async update(id:number,dto: UpdateCourseDto, instructorId:string,){
        const course = await this.CourseRepository.findOne({
       where: { id },
       relations: ['instructor'],
@@ -49,9 +63,16 @@ async update(id:number,dto: UpdateCourseDto, instructorId:string,){
     if (course.instructor.id !== instructorId)
       throw new ForbiddenException('You are not the owner of this course');
 
-    Object.assign(course, dto);
-    return await this.CourseRepository.save(course);
-}
+    course.title =
+    dto.title ?? course.title;
+
+    course.description =
+    dto.description ?? course.description;
+    const save = await this.CourseRepository.save(course)
+    return plainToInstance(CreateCourseResponseDto, save, {
+    excludeExtraneousValues: true,  
+    }); ;
+  }
   async deleteCourse(id: number, instructorId: string) {
     const course = await this.CourseRepository.findOne({
       where: { id },
@@ -63,44 +84,207 @@ async update(id:number,dto: UpdateCourseDto, instructorId:string,){
       throw new ForbiddenException('You are not the owner of this course');
 
     await this.notificationService.deleteAllForCourse(id);
-    return this.CourseRepository.remove(course);
+    await this.CourseRepository.remove(course);
+    return {id, message:"Course deleted successfully"}
   }
 
+
+  
+  // for students
   async getAll() {
-    return this.CourseRepository.find({
+    const courses = await this.CourseRepository.find({
+      where: {
+        status: CourseState.PUBLISHED
+    },
       relations: ['instructor'],
     });
+    return plainToInstance(CourseListItemDto,courses, {
+    excludeExtraneousValues: true,  
+  })
   }
 
   async getOne(id: number) {
-    return this.CourseRepository.findOne({
-      where: { id },
-      relations: ['instructor',
-         'enrollments','enrollments.student'
+    const course = await this.CourseRepository.findOne({
+      where: { id , status:CourseState.PUBLISHED},
+      relations: ['instructor'
       ],
     });
+    if (!course) {
+    throw new NotFoundException('Course not found');
+    }
+    return plainToInstance(CourseResponseDto, course, {
+    excludeExtraneousValues: true,  
+  })
   }
 
-async updateCourseState(instructorId:string, courseId: number, newStatus:CourseState){
-const course = await this.CourseRepository.findOne({where:{id:courseId}, relations:['sessions',
-  //  'enrollments'
-  ]}) 
-if(!course){
-  throw new NotFoundException('course not found')
+  
+  async getAllCoursesForInstructor(instructorId:string, status?:CourseState){
+    const courses = await this.CourseRepository.find({
+      where: {instructor:{id:instructorId}, ...(status && {status})
+    },
+    });
+    return plainToInstance(InstructorCourseListItemDto, courses, {
+    excludeExtraneousValues: true,  
+  })
+  }
+
+
+   async getOneCourseForInstructor(courseId:number,instructorId:string){
+    const course = await this.CourseRepository.findOne({
+      where: {instructor:{id:instructorId},id:courseId
+    },
+    });
+    return plainToInstance(InstructorCourseResponseDto, course, {
+    excludeExtraneousValues: true,  
+  })
+  }
+
+  //  for admin
+  async getOneDetailed(id: number, user:JwtPayload) {
+    const course = await this.CourseRepository.findOne({
+      where: { id },
+      relations: ['instructor'
+      ],
+    });
+    if (!course) {
+    throw new NotFoundException('Course not found');
+    }
+
+    const isOwner = course.instructor.id === user.userId
+    const isAdmin = user.role === Role.ADMIN
+    if(!isAdmin && !isOwner) throw new ForbiddenException()
+    const enrollments = await this.enrollmentRepository.find({
+       where:{course:{id: id}, status:'ACTIVE'},
+       relations:['student']
+  })  
+    return  plainToInstance(
+        CourseDetailResponseDto,
+        { ...course, enrollments },
+        { excludeExtraneousValues: true },
+      )
+  }
+
+  async submitForReview(courseId:number,instructorId:string){
+    const course = await this.getCourseOrFail(courseId)
+    if(course.instructor.id !== instructorId){
+      throw new ForbiddenException("Not allowed")
+    }
+    this.assertTransition(course.status,CourseState.PENDING_REVIEW)
+    const courseval  : validateForSubmit   = {
+      title:course.title,
+      description:course.description,
+      status: course.status,
+      sessionsCount:course.sessionsCount
+    }
+    this.validateCourseReadyForReview(courseval)
+    course.status = CourseState.PENDING_REVIEW
+    //TO_DO
+    //notify admin that a course added to be reviewed 
+    const save = await this.CourseRepository.save(course)
+    return this.toStatusChangeResponse(save)
+  }
+
+  async ApprovePublishCourse(courseId: number){
+    const course = await this.getCourseOrFail(courseId)
+    this.assertTransition(
+    course.status,
+    CourseState.PUBLISHED);
+    await this.validateCourseReadyForPublish(course.sessionsCount,courseId)
+    course.status = CourseState.PUBLISHED;
+    const save = await this.CourseRepository.save(course)
+    return this.toStatusChangeResponse(save)
+  }
+
+  async rejectPublishCourse(courseId:number, reason:string){
+    const course = await this.getCourseOrFail(courseId)
+    this.assertTransition(
+    course.status,
+    CourseState.DRAFT);
+    course.status = CourseState.DRAFT;
+    const save = await this.CourseRepository.save(course)
+    return this.toStatusChangeResponse(save,reason)
+  }  
+
+  async ArchivedCourse(courseId:number,user: JwtPayload,){
+    const course = await this.getCourseOrFail(courseId)
+    if (
+     user.role === Role.INSTRUCTOR &&
+     course.instructor.id !== user.userId
+    ) {throw new ForbiddenException();}
+    
+  
+    this.assertTransition(course.status,CourseState.ARCHIVED)
+    course.status = CourseState.ARCHIVED;
+    const save = await this.CourseRepository.save(course)
+    return this.toStatusChangeResponse(save) 
+  }
+
+  async updateSession(courseId:number, instructorId:string){
+    const course = await this.getCourseOrFail(courseId)
+    if(instructorId !== course.instructor.id){
+      throw new ForbiddenException()
+    }
+    if(course.status == CourseState.PUBLISHED){
+      throw new BadRequestException("Published courses can't be edited")}
+      
+    }
+  private async getCourseOrFail(courseId: number):Promise<Course> {
+   const course = await this.CourseRepository.findOne({where:{id:courseId},relations:['instructor']})
+    if(!course){
+      throw new NotFoundException('course not found')
+    }
+   return course;
+  }
+  private async validateCourseReadyForPublish(sessionCount: number,courseId:number): Promise<void>{
+    const count =  await this.sessionRepository.count({where:{course:{id:courseId}}})
+    if(count !== sessionCount){
+      throw new BadRequestException('Generate all sessions before publishing');
+      // notify instructor that his course not published
+    }
+  
+  }
+  private validateCourseReadyForReview(course:validateForSubmit){
+     if (!course.title) {
+      throw new BadRequestException('Title is required');
+    }
+
+    if (!course.description) {
+      throw new BadRequestException('Description is required');
+    }
+
+    if (course.sessionsCount === 0) {
+      throw new BadRequestException('Course must contain sessions');
+    }
+   
+  }
+
+  private readonly transitions : Record<CourseState, CourseState[]>  = {
+    [CourseState.DRAFT]:
+    [CourseState.PENDING_REVIEW],
+
+    [CourseState.PENDING_REVIEW]:
+    [CourseState.PUBLISHED,
+     CourseState.DRAFT],
+
+    [CourseState.PUBLISHED]:
+    [CourseState.ARCHIVED],
+
+    [CourseState.ARCHIVED]:[]
+  }
+  private assertTransition(current:CourseState,target:CourseState): void{
+    const allowed = this.transitions[current] ?? [];
+    if(!allowed.includes(target)){
+      throw new BadRequestException(
+      `Invalid transition from ${current} to ${target}`,)
+    }
+  }
+
+  private toStatusChangeResponse(course: Course, reason?: string) {
+  return plainToInstance(
+    CourseStatusChangeResponseDto,
+    { ...course, reason },
+    { excludeExtraneousValues: true },
+  );
 }
-if(course.instructor.id !== instructorId){
-  throw new ForbiddenException()
-}
-if(course.status == CourseState.AECHIVED){
-  throw new BadRequestException('Archived course')
-}
-if(newStatus === CourseState.PUBLISHED ||
-   newStatus === CourseState.AECHIVED &&
-    course.status.length>0){
-throw new BadRequestException('student already enrolled')
-}
-course.status = newStatus;
-const save = await this.CourseRepository.save(course)
-return plainToInstance(createCourseResponseDto,save,{excludeExtraneousValues: true })
-}
+
 }

@@ -19,21 +19,30 @@ export class CreateCourseDto {
 
 export class UpdateCourseDto {
     @IsOptional()
-         @IsString() 
-  title?: string;
-      @IsOptional()
-         @IsString() 
-  description?: string;
-   @IsNumber()
-  @IsNotEmpty()
+    @IsString() 
+    title?: string;
+    @IsOptional()
+    @IsString() 
+    description?: string;
+}
+
+export class UpdateCourseSessionDto{
+    @IsNumber()
+    @IsNotEmpty()
     sessionsCount: number;
     @Type(() => Date)
     @IsDate()
-  @IsNotEmpty()
-  startDate: Date;
-  @Type(() => Date)
-  @IsDate()
-  @IsNotEmpty()
-  endDate: Date;
+    @IsNotEmpty()
+    startDate: Date;
+    @Type(() => Date)
+    @IsDate()
+    @IsNotEmpty()
+    endDate: Date;
 
+}
+
+
+export class RejectCourseDto {
+  @IsString()
+  reason: string;
 }
