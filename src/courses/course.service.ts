@@ -1,11 +1,17 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { Course } from "./course.entity";
 import { CreateCourseDto, RejectCourseDto, UpdateCourseDto } from "./dtos/course.dto";
 import { User } from "src/User/user.entity";
 import { plainToInstance } from "class-transformer";
-import { CourseDetailResponseDto, CourseListItemDto, CourseResponseDto, CourseStatusChangeResponseDto, CreateCourseResponseDto, InstructorCourseListItemDto, InstructorCourseResponseDto } from "./dtos/course-response.dto";
+import { CourseDetailResponseDto,
+   CourseListItemDto,
+   CourseResponseDto,
+   CourseStatusChangeResponseDto, 
+   CreateCourseResponseDto, 
+   InstructorCourseListItemDto,
+    InstructorCourseResponseDto } from "./dtos/course-response.dto";
 import { CourseState } from "src/common/enums/courseState.enum";
 import { Role } from "src/common/enums/roles.enum";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -29,6 +35,7 @@ export class CourseService{
     @InjectRepository(CourseSession) private readonly sessionRepository: Repository<CourseSession>, 
     @InjectRepository (Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
     private readonly notificationService: NotificationService,
+    private dataSource: DataSource,
     )
     {}
 
@@ -184,16 +191,33 @@ export class CourseService{
     return this.toStatusChangeResponse(save)
   }
 
-  async ApprovePublishCourse(courseId: number){
-    const course = await this.getCourseOrFail(courseId)
-    this.assertTransition(
-    course.status,
-    CourseState.PUBLISHED);
-    await this.validateCourseReadyForPublish(course.sessionsCount,courseId)
+  
+async approvePublishCourse(courseId: number) {
+  return this.dataSource.transaction(async (manager) => {
+    
+    const course = await manager.findOne(Course, {
+      where: { id: courseId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!course) throw new NotFoundException('Course not found');
+
+    this.assertTransition(course.status, CourseState.PUBLISHED);
+
+    const sessionsCount = await manager.count(CourseSession, {
+      where: { course: { id: courseId } },
+    });
+
+    if (sessionsCount !== course.sessionsCount) {
+      throw new BadRequestException('Generate all sessions before publishing');
+    }
+
     course.status = CourseState.PUBLISHED;
-    const save = await this.CourseRepository.save(course)
-    return this.toStatusChangeResponse(save)
-  }
+    const savedCourse = await manager.save(course);
+    return this.toStatusChangeResponse(savedCourse);
+  });
+}
+
 
   async rejectPublishCourse(courseId:number, reason:string){
     const course = await this.getCourseOrFail(courseId)
@@ -201,11 +225,12 @@ export class CourseService{
     course.status,
     CourseState.DRAFT);
     course.status = CourseState.DRAFT;
+    course.rejectionReason = reason
     const save = await this.CourseRepository.save(course)
     return this.toStatusChangeResponse(save,reason)
   }  
 
-  async ArchivedCourse(courseId:number,user: JwtPayload,){
+  async archivedCourse(courseId:number,user: JwtPayload,){
     const course = await this.getCourseOrFail(courseId)
     if (
      user.role === Role.INSTRUCTOR &&
@@ -219,15 +244,6 @@ export class CourseService{
     return this.toStatusChangeResponse(save) 
   }
 
-  async updateSession(courseId:number, instructorId:string){
-    const course = await this.getCourseOrFail(courseId)
-    if(instructorId !== course.instructor.id){
-      throw new ForbiddenException()
-    }
-    if(course.status == CourseState.PUBLISHED){
-      throw new BadRequestException("Published courses can't be edited")}
-      
-    }
   private async getCourseOrFail(courseId: number):Promise<Course> {
    const course = await this.CourseRepository.findOne({where:{id:courseId},relations:['instructor']})
     if(!course){

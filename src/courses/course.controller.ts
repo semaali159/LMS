@@ -170,7 +170,7 @@ export class CourseController {
    approve(
     @Param("id", ParseIntPipe) courseId: number
    ){ 
-    return this.courseService.ApprovePublishCourse(courseId)
+    return this.courseService.approvePublishCourse(courseId)
    } 
 
    @Put(":id/reject")
@@ -200,7 +200,7 @@ export class CourseController {
     @Param("id", ParseIntPipe) courseId: number,
     @GetUser() user:JwtPayload
    ){
-    return this.courseService.ArchivedCourse(courseId,user)
+    return this.courseService.archivedCourse(courseId,user)
    }
 
 }
