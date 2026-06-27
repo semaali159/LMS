@@ -1,23 +1,43 @@
-import { IsArray, ArrayNotEmpty, IsEnum, IsString, ValidateIf } from 'class-validator';
+import { IsArray, ArrayNotEmpty, IsEnum, IsString, ValidateIf, ValidateNested, IsDate, IsOptional, Matches } from 'class-validator';
 import { WeekDay } from '../../common/enums/week-day.enum';
-export class CreateSchedulesDto {
-  @IsArray()
-  @ArrayNotEmpty()
+import { Type } from 'class-transformer';
+
+
+const TIME_24H_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
+export class ScheduleItemDto {
   @IsEnum(WeekDay, { each: true })
-  day: WeekDay[];
+  day: WeekDay;
 
+  @IsString()
+  @Matches(TIME_24H_REGEX, {
+    message: 'startTime must be in 24-hour HH:mm format (e.g. "14:00")',
+  })
+  startTime: string;
+
+  @IsString()
+  @Matches(TIME_24H_REGEX, {
+    message: 'endTime must be in 24-hour HH:mm format (e.g. "14:00")',
+  })
+  endTime: string;
+
+}
+
+export class CreateScheduleDto{
   @IsArray()
   @ArrayNotEmpty()
-  @IsString({ each: true })
-  startTime: string[];
+  @ValidateNested({each:true})
+  @Type(()=> ScheduleItemDto)
+  schedules:ScheduleItemDto[]
+}
 
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsString({ each: true })
-  endTime: string[];
+export class UpdateSessionDto{
+  @IsDate()
+  @IsOptional()
+  date?: string;
 
-  @ValidateIf((o) => o.day.length !== o.startTime.length || o.day.length !== o.endTime.length)
-  validateLengths() {
-    throw new Error('Arrays length must match');
-  }
+  @IsString()
+  startTime?: string;
+  
+  @IsString()
+  endTime?: string
 }
