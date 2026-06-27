@@ -22,8 +22,8 @@ export class Course {
   @Column({ type: 'date' })
   startDate: Date;
   
-  @Column({ type: 'date' ,default:"2026-12-01"})
-  endDate: Date;
+  @Column({ type: 'date', nullable: true })
+  endDate: Date | null;
 
   @Column({type:'enum', enum:CourseState, default:CourseState.DRAFT})
   status : CourseState

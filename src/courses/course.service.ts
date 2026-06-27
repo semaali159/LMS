@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { Course } from "./course.entity";
-import { CreateCourseDto, RejectCourseDto, UpdateCourseDto } from "./dtos/course.dto";
+import { CreateCourseDto, RejectCourseDto, UpdateCourseDto, UpdateCourseSessionDto } from "./dtos/course.dto";
 import { User } from "src/User/user.entity";
 import { plainToInstance } from "class-transformer";
 import { CourseDetailResponseDto,
@@ -19,6 +19,7 @@ import { Enrollment } from "src/Enrollments/Enrollment.entity";
 import { NotificationService } from "src/Notification/Notification.service";
 import { CourseSession } from "src/course-sessions/entities/course-session.entity";
 import { JwtPayload } from "src/common/types/payload.interface";
+import { CourseSessionSchedule } from "src/course-sessions/entities/course-session-schedual";
 
  interface validateForSubmit{
       title: string;
@@ -95,6 +96,29 @@ export class CourseService{
     return {id, message:"Course deleted successfully"}
   }
 
+  async replaceSchedual(courseId:number, dto: UpdateCourseSessionDto, instructorId:string){
+    return this.dataSource.transaction(async (manager)=>{
+      const course = await manager.findOne(Course,{
+        where:{id:courseId},
+        relations: ['instructor'],
+        lock:{mode: 'pessimistic_write'},
+      })
+      if(!course) throw new NotFoundException('Course not found')
+      if(course.instructor.id !== instructorId) throw new ForbiddenException()
+      if(![CourseState.DRAFT, CourseState.PENDING_REVIEW].includes(course.status)){
+        throw new BadRequestException('Schedule cannot be edited')
+      }
+      
+      await manager.delete(CourseSession, {course:{id:courseId}})
+      await manager.delete(CourseSessionSchedule,{course:{id:courseId}})
+      if(course.status === CourseState.PENDING_REVIEW ){
+        course.status = CourseState.DRAFT
+      }
+      await manager.save(course)
+    })
+
+  }
+
 
   
   // for students
@@ -158,7 +182,7 @@ export class CourseService{
     }
 
     const isOwner = course.instructor.id === user.userId
-    const isAdmin = user.role === Role.ADMIN
+    const isAdmin = user.roles?.includes(Role.ADMIN)
     if(!isAdmin && !isOwner) throw new ForbiddenException()
     const enrollments = await this.enrollmentRepository.find({
        where:{course:{id: id}, status:'ACTIVE'},
@@ -233,7 +257,7 @@ async approvePublishCourse(courseId: number) {
   async archivedCourse(courseId:number,user: JwtPayload,){
     const course = await this.getCourseOrFail(courseId)
     if (
-     user.role === Role.INSTRUCTOR &&
+     user.roles?.includes(Role.INSTRUCTOR) &&
      course.instructor.id !== user.userId
     ) {throw new ForbiddenException();}
     
