@@ -1,11 +1,11 @@
-import { IsArray, ArrayNotEmpty, IsEnum, IsString, ValidateIf, ValidateNested, IsDate, IsOptional, Matches } from 'class-validator';
+import { IsArray, ArrayNotEmpty, IsEnum, IsString, ValidateIf, ValidateNested, IsDate, IsOptional, Matches, IsDateString } from 'class-validator';
 import { WeekDay } from '../../common/enums/week-day.enum';
 import { Type } from 'class-transformer';
 
 
 const TIME_24H_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
 export class ScheduleItemDto {
-  @IsEnum(WeekDay, { each: true })
+  @IsEnum(WeekDay)
   day: WeekDay;
 
   @IsString()
@@ -31,13 +31,17 @@ export class CreateScheduleDto{
 }
 
 export class UpdateSessionDto{
-  @IsDate()
-  @IsOptional()
-  date?: string;
-
-  @IsString()
-  startTime?: string;
-  
-  @IsString()
-  endTime?: string
-}
+   @IsOptional()
+   @IsDateString() 
+   date?: string;
+ 
+   @IsOptional() 
+   @IsString()
+   @Matches(TIME_24H_REGEX, { message: 'startTime must be in 24-hour HH:mm format' })
+   startTime?: string;
+ 
+   @IsOptional() 
+   @IsString()
+   @Matches(TIME_24H_REGEX, { message: 'endTime must be in 24-hour HH:mm format' })
+   endTime?: string;
+ }

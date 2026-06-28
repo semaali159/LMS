@@ -132,6 +132,19 @@ export class CourseSessionsService {
   if(session.course.status === CourseState.ARCHIVED){
     throw new BadRequestException('Cannot reschedule sessions of an archived course');
   }
+  if (!dto.date && !dto.startTime && !dto.endTime) {
+    throw new BadRequestException('At least one field (date, startTime, endTime) must be provided');
+  }
+
+  if (dto.date && new Date(dto.date) < new Date(new Date().toDateString())) {
+    throw new BadRequestException('Cannot reschedule a session to a past date');
+  }
+
+  const newStartTime = dto.startTime ?? session.startTime;
+  const newEndTime = dto.endTime ?? session.endTime;
+  if (newStartTime && newEndTime && timeToMinutes(newStartTime) >= timeToMinutes(newEndTime)) {
+    throw new BadRequestException('Session start time must be before end time');
+  }
   if(dto.date) session.date = new Date(dto.date)
   if(dto.startTime) session.startTime = dto.startTime
   if(dto.endTime) session.endTime = dto.endTime
@@ -146,8 +159,8 @@ export class CourseSessionsService {
     if (lastSession && lastSession.date.toString() !== session.course.endDate?.toString()) {
       await this.courseRepo.update(session.course.id, { endDate: lastSession.date });
     }
-    return plainToInstance(SessionResponseDto, saved, {excludeExtraneousValues:true})
   }
+    return plainToInstance(SessionResponseDto, saved, {excludeExtraneousValues:true})
   }
 
   private validateScheduleItems(items: ScheduleItemDto[], sessionsCount: number) {
