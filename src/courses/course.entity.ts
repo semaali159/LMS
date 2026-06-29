@@ -31,7 +31,7 @@ export class Course {
   @Column({ nullable: true })
   rejectionReason?: string;
 
-  @ManyToOne(() => User, user => user.coursesinstructor, { eager: true })
+  @ManyToOne(() => User, user => user.coursesinstructor)
   instructor: User;
 
   @OneToMany(() => CourseSession, s => s.course, { cascade: true })

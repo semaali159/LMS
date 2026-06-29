@@ -3,8 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { CourseSession } from './entities/course-session.entity';
 import { Course } from 'src/courses/course.entity';
-import { CreateCourseDto } from 'src/courses/dtos/course.dto';
-import { User } from 'src/User/user.entity';
 import { CourseSessionSchedule } from './entities/course-session-schedual';
 import { getFirstDateOnOrAfter, addWeeks } from './utils/generateDays';
 import { CreateScheduleDto, ScheduleItemDto, UpdateSessionDto } from './dtos/create-session.dto'
@@ -31,11 +29,21 @@ export class CourseSessionsService {
   async addSchedulesAndGenerateSessions(
     courseId: number,
     dto: CreateScheduleDto,
-    instructorId:string) {
+    instructorId:string
+  ) {
       return this.dataSource.transaction(async(manager)=>{
         const course = await manager.findOne(Course, {
       where: { id: courseId },
       relations: ['instructor'],
+      select:{
+        id:true,
+        sessionsCount:true,
+        startDate:true,
+        endDate:true,
+        status:true,
+        instructor:{id:true}
+      
+      },
       lock: { mode: 'pessimistic_write' },
     });
 
@@ -70,6 +78,13 @@ export class CourseSessionsService {
     const sessions = await this.sessionRepo.find({
           where: { course: { id: courseId } },
           order: { sessionNumber: 'ASC' },
+          select: {
+            id: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            sessionNumber: true,
+      },
         });
     
         return plainToInstance(SessionResponseDto, sessions, {
@@ -86,6 +101,13 @@ export class CourseSessionsService {
       const course = await manager.findOne(Course, {
         where: { id: courseId },
         relations: ['instructor'],
+         select: {
+          id: true,
+          sessionsCount: true,
+          startDate: true,
+          status: true,
+          instructor: { id: true },
+        },
         lock: { mode: 'pessimistic_write' },
       })
 
@@ -119,6 +141,19 @@ export class CourseSessionsService {
     const session = await this.sessionRepo.findOne({
     where: { id: sessionId },
     relations: ['course', 'course.instructor'],
+    select: {
+        id: true,
+        date: true,
+        startTime: true,
+        endTime: true,
+        sessionNumber: true,
+        course: {
+          id: true,
+          status: true,
+          endDate: true,
+          instructor: { id: true },
+        },
+      },
   });
 
   if (!session) throw new NotFoundException('Session not found');
@@ -154,7 +189,8 @@ export class CourseSessionsService {
   if(dto.date){
     const lastSession = await this.sessionRepo.findOne({
       where:{course:{id:session.course.id}}
-      ,order:{date:'DESC'}
+      ,order:{date:'DESC'},
+      select: { date: true },
     })
     if (lastSession && lastSession.date.toString() !== session.course.endDate?.toString()) {
       await this.courseRepo.update(session.course.id, { endDate: lastSession.date });

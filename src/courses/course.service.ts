@@ -65,6 +65,12 @@ export class CourseService{
        const course = await this.CourseRepository.findOne({
       where: { id },
       relations: ['instructor'],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        instructor: { id: true },
+      },
     });
 
     if (!course) throw new NotFoundException('Course not found');
@@ -85,6 +91,10 @@ export class CourseService{
     const course = await this.CourseRepository.findOne({
       where: { id },
       relations: ['instructor'],
+      select: {
+        id: true,
+        instructor: { id: true },
+      },
     });
 
     if (!course) throw new NotFoundException('Course not found');
@@ -128,6 +138,12 @@ export class CourseService{
         status: CourseState.PUBLISHED
     },
       relations: ['instructor'],
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        sessionsCount: true,
+        instructor: { id: true, username: true }}
     });
     return plainToInstance(CourseListItemDto,courses, {
     excludeExtraneousValues: true,  
@@ -137,8 +153,15 @@ export class CourseService{
   async getOne(id: number) {
     const course = await this.CourseRepository.findOne({
       where: { id , status:CourseState.PUBLISHED},
-      relations: ['instructor'
-      ],
+      relations: ['instructor'],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        status: true,
+        sessionsCount: true,
+        instructor: { id: true, username: true },
+      },
     });
     if (!course) {
     throw new NotFoundException('Course not found');
@@ -153,6 +176,12 @@ export class CourseService{
     const courses = await this.CourseRepository.find({
       where: {instructor:{id:instructorId}, ...(status && {status})
     },
+    select: {
+        id: true,
+        title: true,
+        status: true,
+        sessionsCount: true,
+      },
     });
     return plainToInstance(InstructorCourseListItemDto, courses, {
     excludeExtraneousValues: true,  
@@ -164,7 +193,16 @@ export class CourseService{
     const course = await this.CourseRepository.findOne({
       where: {instructor:{id:instructorId},id:courseId
     },
+    select: {
+        id: true,
+        title: true,
+        description: true,
+        status: true,
+        sessionsCount: true,
+      },
     });
+    if (!course) throw new NotFoundException('Course not found');
+
     return plainToInstance(InstructorCourseResponseDto, course, {
     excludeExtraneousValues: true,  
   })
@@ -174,8 +212,15 @@ export class CourseService{
   async getOneDetailed(id: number, user:JwtPayload) {
     const course = await this.CourseRepository.findOne({
       where: { id },
-      relations: ['instructor'
-      ],
+      relations: ['instructor'],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        status: true,
+        sessionsCount: true,
+        instructor: { id: true, username: true },
+      },
     });
     if (!course) {
     throw new NotFoundException('Course not found');
@@ -186,7 +231,13 @@ export class CourseService{
     if(!isAdmin && !isOwner) throw new ForbiddenException()
     const enrollments = await this.enrollmentRepository.find({
        where:{course:{id: id}, status:'ACTIVE'},
-       relations:['student']
+       relations:['student'],
+       select: {
+        id: true,
+        status: true,
+        enrolledAt: true,
+        student: { id: true, username: true },
+      },
   })  
     return  plainToInstance(
         CourseDetailResponseDto,
@@ -269,20 +320,24 @@ async approvePublishCourse(courseId: number) {
   }
 
   private async getCourseOrFail(courseId: number):Promise<Course> {
-   const course = await this.CourseRepository.findOne({where:{id:courseId},relations:['instructor']})
+   const course = await this.CourseRepository.findOne({where:{id:courseId},
+    relations:['instructor'],
+     select: {
+        id: true,
+        title: true,
+        description: true,
+        sessionsCount: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        instructor: { id: true }}
+  })
     if(!course){
       throw new NotFoundException('course not found')
     }
    return course;
   }
-  private async validateCourseReadyForPublish(sessionCount: number,courseId:number): Promise<void>{
-    const count =  await this.sessionRepository.count({where:{course:{id:courseId}}})
-    if(count !== sessionCount){
-      throw new BadRequestException('Generate all sessions before publishing');
-      // notify instructor that his course not published
-    }
-  
-  }
+
   private validateCourseReadyForReview(course:validateForSubmit){
      if (!course.title) {
       throw new BadRequestException('Title is required');
