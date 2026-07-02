@@ -31,6 +31,12 @@ export class Course {
   @Column({ nullable: true })
   rejectionReason?: string;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  capacity: number | null; 
+
+  @Column({ default: false })
+  requiresApproval: boolean; 
+
   @ManyToOne(() => User, user => user.coursesinstructor)
   instructor: User;
 
