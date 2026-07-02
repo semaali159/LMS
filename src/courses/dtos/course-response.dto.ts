@@ -30,6 +30,9 @@ export class CourseListItemDto {
 
 export class CourseResponseDto extends CourseListItemDto {
   @Expose() description: string;
+  @Expose() startDate: Date;
+  @Expose() endDate: Date;
+
 }
 
 export class InstructorCourseListItemDto {
@@ -41,6 +44,8 @@ export class InstructorCourseListItemDto {
 
 export class InstructorCourseResponseDto extends InstructorCourseListItemDto {
   @Expose() description: string;
+  @Expose() startDate: Date;
+  @Expose() endDate: Date;
 }
 
 export class CourseStatusChangeResponseDto {
@@ -63,8 +68,8 @@ export class EnrolledStudentDto {
   @Expose() enrolledAt: Date;
 }
 
+
+
 export class CourseDetailResponseDto extends CourseResponseDto {
-  @Expose()
-  @Type(() => EnrolledStudentDto)
-  enrollments: EnrolledStudentDto[];
+   @Expose() rejectionReason?: string;
 }

@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   ParseIntPipe,
+  Search,
 } from '@nestjs/common';
 import { CourseService } from './course.service';
 
@@ -115,9 +116,16 @@ export class CourseController {
 
   @Get()
   @ApiOperation({summary:'Get all published courses (Public)'})
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
   @ApiResponse({status:200, description: 'List of published courses'})
-  getAllCourses(){
-    return this.courseService.getAll()
+  getAllCourses(
+    @Query('page') page?:number,
+    @Query('limit') limit?:number,
+    @Query('search') Search?:string
+  ){
+    return this.courseService.getAll({page,limit}, Search)
   }
 
   @Get(':id')

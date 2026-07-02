@@ -10,6 +10,7 @@ import { CourseDetailResponseDto,
    CourseResponseDto,
    CourseStatusChangeResponseDto, 
    CreateCourseResponseDto, 
+   EnrolledStudentDto, 
    InstructorCourseListItemDto,
     InstructorCourseResponseDto } from "./dtos/course-response.dto";
 import { CourseState } from "src/common/enums/courseState.enum";
@@ -20,6 +21,7 @@ import { NotificationService } from "src/Notification/Notification.service";
 import { CourseSession } from "src/course-sessions/entities/course-session.entity";
 import { JwtPayload } from "src/common/types/payload.interface";
 import { CourseSessionSchedule } from "src/course-sessions/entities/course-session-schedual";
+import { buildCursor, buildOffset, cursorPaginationInput, normalizeCursor, normalizeOffset, offsetPaginationInput } from "src/common/services/pagination";
 
  interface validateForSubmit{
       title: string;
@@ -132,22 +134,24 @@ export class CourseService{
 
   
   // for students
-  async getAll() {
-    const courses = await this.CourseRepository.find({
-      where: {
-        status: CourseState.PUBLISHED
-    },
-      relations: ['instructor'],
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        sessionsCount: true,
-        instructor: { id: true, username: true }}
-    });
-    return plainToInstance(CourseListItemDto,courses, {
-    excludeExtraneousValues: true,  
-  })
+  async getAll(pagination: offsetPaginationInput, search?:string) {
+    const {page, limit,skip,take} = normalizeOffset(pagination)
+    const query = this.CourseRepository.createQueryBuilder('course')
+      .leftJoin('course.instructor','instructor')
+      .addSelect(['instructor.id', 'instructor.name'])
+      .where('couse.status = :status', {status:CourseState.PUBLISHED})
+    if(search){
+      query.andWhere('course.title ILIKE :search',{search:`%${search}% `})
+    }  
+    const [courses,totalItems] = await query
+      .skip(skip)
+      .take(take)
+      .getManyAndCount()
+    
+    const dtos = plainToInstance(CourseListItemDto,courses,{
+      excludeExtraneousValues:true
+    })  
+    return buildOffset(dtos,totalItems,page,limit)
   }
 
   async getOne(id: number) {
@@ -171,7 +175,7 @@ export class CourseService{
   })
   }
 
-  
+  // for instructor
   async getAllCoursesForInstructor(instructorId:string, status?:CourseState){
     const courses = await this.CourseRepository.find({
       where: {instructor:{id:instructorId}, ...(status && {status})
@@ -209,42 +213,32 @@ export class CourseService{
   }
 
   //  for admin
-  async getOneDetailed(id: number, user:JwtPayload) {
-    const course = await this.CourseRepository.findOne({
-      where: { id },
-      relations: ['instructor'],
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        sessionsCount: true,
-        instructor: { id: true, username: true },
-      },
-    });
-    if (!course) {
-    throw new NotFoundException('Course not found');
-    }
+ async getOneDetailed(id: number, user: JwtPayload) {
+  const course = await this.CourseRepository.findOne({
+    where: { id },
+    relations: ['instructor'],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      sessionsCount: true,
+      startDate: true,
+      endDate: true,
+      instructor: { id: true, username: true },
+    },
+  });
 
-    const isOwner = course.instructor.id === user.userId
-    const isAdmin = user.roles?.includes(Role.ADMIN)
-    if(!isAdmin && !isOwner) throw new ForbiddenException()
-    const enrollments = await this.enrollmentRepository.find({
-       where:{course:{id: id}, status:'ACTIVE'},
-       relations:['student'],
-       select: {
-        id: true,
-        status: true,
-        enrolledAt: true,
-        student: { id: true, username: true },
-      },
-  })  
-    return  plainToInstance(
-        CourseDetailResponseDto,
-        { ...course, enrollments },
-        { excludeExtraneousValues: true },
-      )
-  }
+  if (!course) throw new NotFoundException('Course not found');
+
+  const isOwner = course.instructor.id === user.userId;
+  const isAdmin = user.roles?.includes(Role.ADMIN)
+  if (!isOwner && !isAdmin) throw new ForbiddenException();
+
+  return plainToInstance(CourseDetailResponseDto, course, {
+    excludeExtraneousValues: true,
+  });
+}
 
   async submitForReview(courseId:number,instructorId:string){
     const course = await this.getCourseOrFail(courseId)
@@ -383,3 +377,53 @@ async approvePublishCourse(courseId: number) {
 }
 
 }
+
+
+// get one course with enrollments
+//  async getOneDetailed(id: number, user:JwtPayload, pagination:cursorPaginationInput) {
+//     const course = await this.CourseRepository.findOne({
+//       where: { id },
+//       relations: ['instructor'],
+//       select: {
+//         id: true,
+//         title: true,
+//         description: true,
+//         status: true,
+//         sessionsCount: true,
+//         instructor: { id: true, username: true },
+//       },
+//     });
+//     if (!course) {
+//     throw new NotFoundException('Course not found');
+//     }
+//     const isOwner = course.instructor.id === user.userId
+//     const isAdmin = user.roles?.includes(Role.ADMIN)
+//     if(!isAdmin && !isOwner) throw new ForbiddenException()
+//     const {limit,take} = normalizeCursor(pagination)
+//     const query = this.enrollmentRepository
+//         .createQueryBuilder('enrollment')
+//         .leftJoin('enrollment.student','student')
+//         .addSelect(['student.id','student.name'])
+//         .where('enrollment.course = :courseId', {courseId:id})
+//         .andWhere('enrollment.status = :status',{status:'ACTIVE'})
+//         .orderBy('enrollment.id','ASC')
+//         .take(take)
+
+//     if(pagination.cursor){
+//       query.andWhere('enrollment.id > :cursor', {cursor: Number(pagination.cursor)})
+//     }
+//     const enrollments = await query.getMany()
+//     const enrollmentDtos = plainToInstance(EnrolledStudentDto, enrollments, {
+//     excludeExtraneousValues: true,
+//   });
+
+//   const paginatedEnrollments = buildCursor(enrollmentDtos, limit);
+//   const courseDto = plainToInstance(CourseDetailResponseDto, course, {
+//     excludeExtraneousValues: true,
+//   });
+
+//   return {
+//     ...courseDto,
+//     enrollments: paginatedEnrollments,
+//   };
+//   }
