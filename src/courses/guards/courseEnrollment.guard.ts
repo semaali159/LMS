@@ -58,7 +58,7 @@ export class CourseEnrollmentGuard implements CanActivate {
 
     request.course = course;
     request.courseAccess = accessResult;
-const userId = request.user?.id;
+const userId = request.user.userId;
 
 if (!userId) {
   throw new UnauthorizedException('User ID not found in request');
@@ -69,7 +69,7 @@ if (!userId) {
       {
         courseId,
         status: course.status,
-        userId: request.user?.id ?? 'anonymous',
+        userId: request.user?.userId?? 'anonymous',
       },
     );
 
