@@ -9,11 +9,15 @@ import { Role } from "src/common/enums/roles.enum";
 import * as payloadInterface from "src/common/types/payload.interface";
 import { CourseEnrollmentGuard } from "src/courses/guards/courseEnrollment.guard";
 import type { JwtPayload } from "src/common/types/payload.interface";
+import { EnrollmentQueryService } from "./EnrollmentService/EnrollmentQuery.service";
 
 @ApiTags('Enrollments')
 @Controller('courses/:courseId/enrollments')
 export class EnrollementController{
-    constructor(private readonly EnrollmentServie: EnrollmentService){
+    constructor(
+      private readonly EnrollmentServie: EnrollmentService,
+      private readonly EnrollmentReviewService:EnrollmentQueryService
+    ){
     }
 
   @Post()
@@ -46,7 +50,7 @@ export class EnrollementController{
     @Query('limit') limit?: number
   )
   {
-    return this.EnrollmentServie.getPendingEnrollment(courseId,instructor.userId,{page,limit})
+    return this.EnrollmentReviewService.getPendingEnrollment(courseId,instructor.userId,{page,limit})
   }
 
   @Get('waitlist')
@@ -63,7 +67,7 @@ export class EnrollementController{
     @Query('page') page?: number,
     @Query('limit') limit?: number
   ){
-    return this.EnrollmentServie.getWaitlistedEnrollments(courseId,instructor.userId,{page,limit})
+    return this.EnrollmentReviewService.getWaitlistedEnrollments(courseId,instructor.userId,{page,limit})
   }
 
 
@@ -78,7 +82,7 @@ accepteEnrollment(
     @Param('enrollmentId',ParseIntPipe) enrollmentId: number,
     @GetUser() instructor : JwtPayload
 ){
-    return this.EnrollmentServie.acceptEnrollment(enrollmentId, instructor.userId)
+    return this.EnrollmentReviewService.acceptEnrollment(enrollmentId, instructor.userId)
 }
 
   @Put(':enrollmentId/reject')
@@ -92,7 +96,7 @@ accepteEnrollment(
     @Param('enrollmentId',ParseIntPipe) enrollmentId: number,
     @GetUser() instructor : JwtPayload
 ){
-    return this.EnrollmentServie.rejectEnrollment(enrollmentId, instructor.userId)
+    return this.EnrollmentReviewService.rejectEnrollment(enrollmentId, instructor.userId)
 }}
 // separate constroller for student
 
